@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Study Space Booking System</title>
+    <style>
+        *{box-sizing:border-box;font-family:system-ui,sans-serif;}
+        body{max-width:950px;margin:24px auto;padding:0 16px;background:#f5f7fa;}
+        h1{text-align:center;color:#222;}
+        .tip{text-align:center;margin-bottom:16px;color:#444;font-size:16px;}
+        .msg-box{background:#fff3cd;border:1px solid #ffeeba;padding:12px;border-radius:8px;margin-bottom:20px;min-height:60px;font-weight:500;}
+        .room-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-bottom:30px;}
+        .room{padding:28px 10px;border-radius:12px;text-align:center;color:white;font-size:20px;font-weight:500;cursor:pointer;transition:0.25s;box-shadow:0 2px 7px #00000020;}
+        .free{background:#3478d8;}
+        .occupied{background:#d83444;}
+        .book-form{background:white;padding:20px;border-radius:12px;box-shadow:0 2px 8px #00000015;}
+        .book-form h3{margin-top:0;}
+        select,input,button{padding:8px;margin:6px 0;border-radius:6px;border:1px solid #ccc;font-size:16px;}
+        button{background:#2b78e4;color:white;border:none;cursor:pointer;padding:9px 14px;}
+        button:hover{background:#1f60bc;}
+    </style>
+</head>
+<body>
+    <h1>Campus Study Space Booking System</h1>
+    <div class="tip">🔵 Blue = Available &nbsp;&nbsp; 🔴 Red = Occupied</div>
+    <div class="msg-box" id="messageBoard">📢 Real-time notifications will appear here.</div>
+
+    <div class="room-grid" id="container"></div>
+
+    <div class="book-form">
+        <h3>Make a Booking</h3>
+        <div>
+            <label>Select Study Area:</label>
+            <select id="roomSelect"></select>
+        </div>
+        <div>
+            <label>Start Time:</label>
+            <input type="datetime-local" id="startTime">
+        </div>
+        <div>
+            <label>End Time:</label>
+            <input type="datetime-local" id="endTime">
+        </div>
+        <button onclick="submitBooking()">Submit Booking</button>
+    </div>
+
+<script>
+const API_BASE = "/api";
+const roomNames = [
+    "Study Room 1",
+    "Study Room 2"
+];
+let roomList = [];
+
+async function fetchData(){
+    const res = await fetch(`${API_BASE}/rooms`);
+    roomList = await res.json();
+    fillRoomSelect();
+    render();
+}
+
+function fillRoomSelect(){
+    const sel = document.getElementById("roomSelect");
+    sel.innerHTML = "";
+    roomList.forEach(r=>{
+        const opt = document.createElement("option");
+        opt.value = r.id;
+        opt.innerText = r.name;
+        sel.appendChild(opt);
+    })
+}
+
+function render(){
+    const container = document.getElementById("container");
+    container.innerHTML = "";
+    roomList.forEach(room=>{
+        const div = document.createElement("div");
+        div.className = "room " + (room.booked ? "occupied" : "free");
+        div.innerText = room.name;
+        div.onclick = ()=>cancelBooking(room.id);
+        container.appendChild(div);
+    })
+}
+
+async function submitBooking(){
+    const rid = Number(document.getElementById("roomSelect").value);
+    const s = document.getElementById("startTime").value;
+    const e = document.getElementById("endTime").value;
+    if(!s || !e){
+        alert("Please fill in both start time and end time.");
+        return;
+    }
+    if(new Date(s) >= new Date(e)){
+        alert("End time must be later than start time.");
+        return;
+    }
+    const res = await fetch(`${API_BASE}/book`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({id:rid,start:s,end:e})
+    })
+    const data = await res.json();
+    showMsg(data.msg);
+    await fetchData();
+}
+
+async function cancelBooking(rid){
+    const res = await fetch(`${API_BASE}/cancel`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({id:rid})
+    })
+    const data = await res.json();
+    showMsg(data.msg);
+    await fetchData();
+}
+
+function showMsg(text){
+    document.getElementById("messageBoard").innerText = text;
+}
+
+// Poll real-time update every 2 seconds
+setInterval(fetchData,2000);
+fetchData();
+</script>
+</body>
+</html>
